@@ -1,9 +1,0 @@
-services:
-  typedrasill-service:
-    container_name: typedrasill-service
-
-  typedrasill-redis:
-    container_name: typedrasill-redis
-
-  typedrasill-postgre:
-    container_name: typedrasill-postgre
