@@ -1,56 +1,24 @@
-import { drizzle } from 'drizzle-orm/pg-core'
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 
-import { users } from './schemas/users'
-import { profiles } from './schemas/profiles'
-import { accessTokens } from './schemas/tokens'
-import { gameSessions } from './schemas/sessions'
-import { skins, capes } from './schemas/skins'
+import { profiles } from "./schemas/profiles";
+import { gameSessions } from "./schemas/sessions";
+import { skins } from "./schemas/skins";
+import { accessTokens } from "./schemas/tokens";
+import { users } from "./schemas/users";
 
-const schema = {
-    users,
-    profiles,
-    accessTokens,
-    gameSessions,
-    skins,
-    capes
-}
+const pool = new Pool({
+  connectionString: Bun.env.DB_HOST!,
+});
 
-const connectionString = Bun.env.DATABASE_URL || "postgresql://user:password@localhost:5432/typedrasil"
+export const db = drizzle(pool, {
+    schema: {
+        ...profiles,
+        ...gameSessions,
+        ...skins,
+        ...accessTokens,
+        ...users,
+    },
+});
 
-export const db = drizzle(schema);
-
-export {
-  users,
-  profiles,
-  accessTokens,
-  gameSessions,
-  skins,
-  capes
-}
-
-export type {
-  User,
-  NewUser
-} from './schemas/users'
-
-export type {
-  Profile,
-  NewProfile
-} from './schemas/profiles'
-
-export type {
-  AccessToken,
-  NewAccessToken
-} from './schemas/tokens'
-
-export type {
-  GameSession,
-  NewGameSession
-} from './schemas/sessions'
-
-export type {
-  Skin,
-  NewSkin,
-  Cape,
-  NewCape
-} from './schemas/skins'
+export type Database = typeof db;
