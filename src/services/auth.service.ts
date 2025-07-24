@@ -13,14 +13,10 @@ import type
 } from "@/shared/interfaces/yggdrasil";
 
 export class AuthService {
-  // ===================================
-  // YGGDRASIL API METHODS
-  // ===================================
 
   async authenticate(request: AuthenticateRequest): Promise<AuthenticateResponse> {
     const { username, password, clientToken, requestUser } = request;
 
-    // Проверяем пользователя
     const [user] = await db.select()
       .from(users)
       .where(eq(users.username, username))
@@ -30,7 +26,6 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
-    // Получаем профиль пользователя
     const [profile] = await db.select()
       .from(profiles)
       .where(eq(profiles.userId, user.id))
@@ -40,7 +35,6 @@ export class AuthService {
       throw new Error('No profile found');
     }
 
-    // Создаём сессию
     const accessToken = this.generateAccessToken();
     const finalClientToken = clientToken || randomUUID();
 
@@ -48,10 +42,9 @@ export class AuthService {
       accessToken,
       clientToken: finalClientToken,
       profileId: profile.id,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 часа
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 h
     });
 
-    // Получаем текстуры для профиля
     const properties = await this.getProfileProperties(profile.id);
 
     const response: AuthenticateResponse = {
@@ -80,7 +73,6 @@ export class AuthService {
   }
 
   async refresh(accessToken: string, clientToken: string): Promise<AuthenticateResponse> {
-    // Проверяем сессию
     const [session] = await db.select()
       .from(sessions)
       .where(and(
@@ -93,7 +85,6 @@ export class AuthService {
       throw new Error('Invalid token');
     }
 
-    // Получаем профиль
     const [profile] = await db.select()
       .from(profiles)
       .where(eq(profiles.id, session.profileId))
@@ -103,7 +94,6 @@ export class AuthService {
       throw new Error('Profile not found');
     }
 
-    // Генерируем новый токен
     const newAccessToken = this.generateAccessToken();
     
     await db.update(sessions)
@@ -154,7 +144,6 @@ export class AuthService {
   }
 
   async signout(username: string, password: string): Promise<void> {
-    // Проверяем пользователя
     const [user] = await db.select()
       .from(users)
       .where(eq(users.username, username))
@@ -164,7 +153,6 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
 
-    // Удаляем все сессии пользователя
     const userProfiles = await db.select()
       .from(profiles)
       .where(eq(profiles.userId, user.id));
@@ -173,16 +161,11 @@ export class AuthService {
 
     if (profileIds.length > 0) {
       await db.delete(sessions)
-        .where(eq(sessions.profileId, profileIds[0])); // Упрощённо для одного профиля
+        .where(eq(sessions.profileId, profileIds[0]));
     }
   }
 
-  // ===================================
-  // SESSION SERVER METHODS
-  // ===================================
-
   async joinServer(accessToken: string, selectedProfile: string, serverId: string): Promise<void> {
-    // Проверяем сессию
     const [session] = await db.select()
       .from(sessions)
       .where(eq(sessions.accessToken, accessToken))
@@ -192,17 +175,12 @@ export class AuthService {
       throw new Error('Invalid session');
     }
 
-    // Проверяем что профиль соответствует сессии
     if (session.profileId !== selectedProfile) {
       throw new Error('Profile mismatch');
     }
-
-    // Здесь можно сохранить serverId для hasJoined проверки
-    // Пока упрощённо
   }
 
   async hasJoined(username: string, serverId: string): Promise<Profile | null> {
-    // Получаем профиль по имени
     const [profile] = await db.select()
       .from(profiles)
       .where(eq(profiles.name, username))
@@ -212,12 +190,10 @@ export class AuthService {
       return null;
     }
 
-    // Проверяем что у пользователя есть активная сессия
     const [session] = await db.select()
       .from(sessions)
       .where(and(
         eq(sessions.profileId, profile.id),
-        // Можно добавить проверку serverId
       ))
       .limit(1);
 
@@ -253,12 +229,7 @@ export class AuthService {
     };
   }
 
-  // ===================================
-  // HELPER METHODS
-  // ===================================
-
   private async getProfileProperties(profileId: string): Promise<Property[]> {
-    // Получаем активные текстуры для профиля
     const textures = await this.getActiveTextures(profileId);
     
     if (!textures.skin && !textures.cape) {
@@ -312,21 +283,15 @@ export class AuthService {
     return randomUUID().replace(/-/g, '');
   }
 
-  // ===================================
-  // USER MANAGEMENT
-  // ===================================
-
   async createUser(username: string, email: string, password: string): Promise<{ userId: string; profileId: string }> {
     const passwordHash = await bcrypt.hash(password, appConfig.BCRYPT_ROUNDS || 12);
 
-    // Создаём пользователя
     const [user] = await db.insert(users).values({
       username,
       email,
       passwordHash
     }).returning();
 
-    // Создаём профиль с тем же именем
     const [profile] = await db.insert(profiles).values({
       userId: user.id,
       name: username
