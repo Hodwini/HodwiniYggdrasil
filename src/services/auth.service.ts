@@ -1,154 +1,358 @@
-import { eq, and, gt } from 'drizzle-orm'
-import crypto from 'crypto'
-import bcrypt from 'bcrypt'
-import { db, users, profiles, accessTokens } from '../database'
-import type { AuthenticateResponse, RefreshResponse } from '../types/yggdrasil'
-import { ERRORS, stripUUID } from '../types/yggdrasil'
+import { eq, and } from "drizzle-orm";
+import bcrypt from "bcrypt";
+import { randomUUIDv7 } from "bun";
+import { users, profiles } from "@/database";
+import { db } from "@/database";
+import type 
+{ 
+    AuthenticateRequest, 
+    AuthenticateResponse, 
+    Profile, 
+    Property, 
+    User 
+} from "@/shared/interfaces/yggdrasil";
 
 export class AuthService {
-  
-  static async authenticate(
-    username: string,
-    password: string,
-    clientToken?: string,
-    requestUser?: boolean
-  ): Promise<RefreshResponse> {
-    
-    // Найти пользователя
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, username),
-      with: { profiles: true }
-    })
+  // ===================================
+  // YGGDRASIL API METHODS
+  // ===================================
 
-    if (!user || !user.isActive) {
-      throw ERRORS.INVALID_CREDENTIALS
+  async authenticate(request: AuthenticateRequest): Promise<AuthenticateResponse> {
+    const { username, password, clientToken, requestUser } = request;
+
+    // Проверяем пользователя
+    const [user] = await db.select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
+    if (!user || !await bcrypt.compare(password, user.passwordHash)) {
+      throw new Error('Invalid credentials');
     }
 
-    // Проверить пароль
-    const isValid = await bcrypt.compare(password, user.passwordHash)
-    if (!isValid) {
-      throw ERRORS.INVALID_CREDENTIALS
+    // Получаем профиль пользователя
+    const [profile] = await db.select()
+      .from(profiles)
+      .where(eq(profiles.userId, user.id))
+      .limit(1);
+
+    if (!profile) {
+      throw new Error('No profile found');
     }
 
-    // Генерация токенов
-    const accessToken = crypto.randomBytes(32).toString('hex')
-    const finalClientToken = clientToken || crypto.randomUUID()
-    
-    const selectedProfile = user.profiles[0]
-    
-    // Сохранить токен
-    await db.insert(accessTokens).values({
-      userId: user.id,
-      profileId: selectedProfile?.id,
+    // Создаём сессию
+    const accessToken = this.generateAccessToken();
+    const finalClientToken = clientToken || randomUUID();
+
+    await db.insert(sessions).values({
       accessToken,
       clientToken: finalClientToken,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
-      isActive: true
-    })
+      profileId: profile.id,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 часа
+    });
 
-    return {
+    // Получаем текстуры для профиля
+    const properties = await this.getProfileProperties(profile.id);
+
+    const response: AuthenticateResponse = {
       accessToken,
       clientToken: finalClientToken,
-      availableProfiles: user.profiles.map((profile) => ({
-        id: stripUUID(profile.id),
-        name: profile.name
-      })),
-      selectedProfile: selectedProfile ? {
-        id: stripUUID(selectedProfile.id),
-        name: selectedProfile.name
-      } : undefined,
-      user: requestUser ? {
-        id: stripUUID(user.id),
-        username: user.email
-      } : undefined
+      availableProfiles: [{
+        id: profile.id,
+        name: profile.name,
+        properties
+      }],
+      selectedProfile: {
+        id: profile.id,
+        name: profile.name,
+        properties
+      }
+    };
+
+    if (requestUser) {
+      response.user = {
+        id: user.id,
+        username: user.username
+      };
     }
+
+    return response;
   }
 
-  static async refresh(
-    accessToken: string,
-    clientToken: string,
-    requestUser?: boolean
-  ): Promise<AuthenticateResponse> {
-    
-    const token = await db.query.accessTokens.findFirst({
-      where: and(
-        eq(accessTokens.accessToken, accessToken),
-        eq(accessTokens.clientToken, clientToken),
-        eq(accessTokens.isActive, true),
-        gt(accessTokens.expiresAt, new Date())
-      ),
-      with: {
-        user: true,
-        profile: true
-      }
-    })
+  async refresh(accessToken: string, clientToken: string): Promise<AuthenticateResponse> {
+    // Проверяем сессию
+    const [session] = await db.select()
+      .from(sessions)
+      .where(and(
+        eq(sessions.accessToken, accessToken),
+        eq(sessions.clientToken, clientToken)
+      ))
+      .limit(1);
 
-    if (!token) {
-      throw ERRORS.INVALID_TOKEN
+    if (!session || session.expiresAt < new Date()) {
+      throw new Error('Invalid token');
     }
 
-    const newAccessToken = crypto.randomBytes(32).toString('hex')
+    // Получаем профиль
+    const [profile] = await db.select()
+      .from(profiles)
+      .where(eq(profiles.id, session.profileId))
+      .limit(1);
+
+    if (!profile) {
+      throw new Error('Profile not found');
+    }
+
+    // Генерируем новый токен
+    const newAccessToken = this.generateAccessToken();
     
-    await db.update(accessTokens)
+    await db.update(sessions)
       .set({
         accessToken: newAccessToken,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        lastUsedAt: new Date()
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
       })
-      .where(eq(accessTokens.id, token.id))
+      .where(eq(sessions.accessToken, accessToken));
+
+    const properties = await this.getProfileProperties(profile.id);
 
     return {
       accessToken: newAccessToken,
       clientToken,
-      selectedProfile: token.profile ? {
-        id: stripUUID(token.profile.id),
-        name: token.profile.name
-      } : undefined,
-      user: requestUser && token.user ? {
-        id: stripUUID(token.user.id),
-        username: token.user.email
-      } : undefined
-    }
+      availableProfiles: [{
+        id: profile.id,
+        name: profile.name,
+        properties
+      }],
+      selectedProfile: {
+        id: profile.id,
+        name: profile.name,
+        properties
+      }
+    };
   }
 
-  static async validate(accessToken: string, clientToken?: string): Promise<boolean> {
-    const token = await db.query.accessTokens.findFirst({
-      where: and(
-        eq(accessTokens.accessToken, accessToken),
-        clientToken ? eq(accessTokens.clientToken, clientToken) : undefined,
-        eq(accessTokens.isActive, true),
-        gt(accessTokens.expiresAt, new Date())
-      )
-    })
-
-    return !!token
-  }
-
-  static async invalidate(accessToken: string, clientToken: string): Promise<void> {
-    await db.update(accessTokens)
-      .set({ isActive: false })
+  async validate(accessToken: string, clientToken: string): Promise<void> {
+    const [session] = await db.select()
+      .from(sessions)
       .where(and(
-        eq(accessTokens.accessToken, accessToken),
-        eq(accessTokens.clientToken, clientToken)
+        eq(sessions.accessToken, accessToken),
+        eq(sessions.clientToken, clientToken)
       ))
+      .limit(1);
+
+    if (!session || session.expiresAt < new Date()) {
+      throw new Error('Invalid token');
+    }
   }
 
-  static async signout(username: string, password: string): Promise<void> {
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, username)
-    })
+  async invalidate(accessToken: string, clientToken: string): Promise<void> {
+    await db.delete(sessions)
+      .where(and(
+        eq(sessions.accessToken, accessToken),
+        eq(sessions.clientToken, clientToken)
+      ));
+  }
 
-    if (!user) {
-      throw ERRORS.INVALID_CREDENTIALS
+  async signout(username: string, password: string): Promise<void> {
+    // Проверяем пользователя
+    const [user] = await db.select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
+    if (!user || !await bcrypt.compare(password, user.passwordHash)) {
+      throw new Error('Invalid credentials');
     }
 
-    const isValid = await bcrypt.compare(password, user.passwordHash)
-    if (!isValid) {
-      throw ERRORS.INVALID_CREDENTIALS
+    // Удаляем все сессии пользователя
+    const userProfiles = await db.select()
+      .from(profiles)
+      .where(eq(profiles.userId, user.id));
+
+    const profileIds = userProfiles.map(p => p.id);
+
+    if (profileIds.length > 0) {
+      await db.delete(sessions)
+        .where(eq(sessions.profileId, profileIds[0])); // Упрощённо для одного профиля
+    }
+  }
+
+  // ===================================
+  // SESSION SERVER METHODS
+  // ===================================
+
+  async joinServer(accessToken: string, selectedProfile: string, serverId: string): Promise<void> {
+    // Проверяем сессию
+    const [session] = await db.select()
+      .from(sessions)
+      .where(eq(sessions.accessToken, accessToken))
+      .limit(1);
+
+    if (!session || session.expiresAt < new Date()) {
+      throw new Error('Invalid session');
     }
 
-    await db.update(accessTokens)
-      .set({ isActive: false })
-      .where(eq(accessTokens.userId, user.id))
+    // Проверяем что профиль соответствует сессии
+    if (session.profileId !== selectedProfile) {
+      throw new Error('Profile mismatch');
+    }
+
+    // Здесь можно сохранить serverId для hasJoined проверки
+    // Пока упрощённо
+  }
+
+  async hasJoined(username: string, serverId: string): Promise<Profile | null> {
+    // Получаем профиль по имени
+    const [profile] = await db.select()
+      .from(profiles)
+      .where(eq(profiles.name, username))
+      .limit(1);
+
+    if (!profile) {
+      return null;
+    }
+
+    // Проверяем что у пользователя есть активная сессия
+    const [session] = await db.select()
+      .from(sessions)
+      .where(and(
+        eq(sessions.profileId, profile.id),
+        // Можно добавить проверку serverId
+      ))
+      .limit(1);
+
+    if (!session || session.expiresAt < new Date()) {
+      return null;
+    }
+
+    const properties = await this.getProfileProperties(profile.id);
+
+    return {
+      id: profile.id,
+      name: profile.name,
+      properties
+    };
+  }
+
+  async getProfileWithTextures(profileId: string): Promise<Profile | null> {
+    const [profile] = await db.select()
+      .from(profiles)
+      .where(eq(profiles.id, profileId))
+      .limit(1);
+
+    if (!profile) {
+      return null;
+    }
+
+    const properties = await this.getProfileProperties(profile.id);
+
+    return {
+      id: profile.id,
+      name: profile.name,
+      properties
+    };
+  }
+
+  // ===================================
+  // HELPER METHODS
+  // ===================================
+
+  private async getProfileProperties(profileId: string): Promise<Property[]> {
+    // Получаем активные текстуры для профиля
+    const textures = await this.getActiveTextures(profileId);
+    
+    if (!textures.skin && !textures.cape) {
+      return [];
+    }
+
+    const textureData = {
+      timestamp: Date.now(),
+      profileId,
+      profileName: textures.profileName,
+      textures: {
+        ...(textures.skin && {
+          SKIN: {
+            url: `${appConfig.BASE_URL}/textures/skin/${textures.profileName}.png`,
+            metadata: { model: 'steve' } // TODO: определять из метаданных
+          }
+        }),
+        ...(textures.cape && {
+          CAPE: {
+            url: `${appConfig.BASE_URL}/textures/cape/${textures.profileName}.png`
+          }
+        })
+      }
+    };
+
+    const textureValue = Buffer.from(JSON.stringify(textureData)).toString('base64');
+
+    return [{
+      name: 'textures',
+      value: textureValue
+      // signature: this.signTextures(textureValue) // TODO: реализовать подпись
+    }];
+  }
+
+  private async getActiveTextures(profileId: string) {
+    // TODO: реализовать получение активных текстур из БД
+    // Пока заглушка
+    const [profile] = await db.select()
+      .from(profiles)
+      .where(eq(profiles.id, profileId))
+      .limit(1);
+
+    return {
+      profileName: profile?.name,
+      skin: null, // TODO: получить из таблицы textures
+      cape: null  // TODO: получить из таблицы textures
+    };
+  }
+
+  private generateAccessToken(): string {
+    return randomUUID().replace(/-/g, '');
+  }
+
+  // ===================================
+  // USER MANAGEMENT
+  // ===================================
+
+  async createUser(username: string, email: string, password: string): Promise<{ userId: string; profileId: string }> {
+    const passwordHash = await bcrypt.hash(password, appConfig.BCRYPT_ROUNDS || 12);
+
+    // Создаём пользователя
+    const [user] = await db.insert(users).values({
+      username,
+      email,
+      passwordHash
+    }).returning();
+
+    // Создаём профиль с тем же именем
+    const [profile] = await db.insert(profiles).values({
+      userId: user.id,
+      name: username
+    }).returning();
+
+    return {
+      userId: user.id,
+      profileId: profile.id
+    };
+  }
+
+  async getUserByUsername(username: string) {
+    const [user] = await db.select()
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
+    return user;
+  }
+
+  async getProfileByName(name: string) {
+    const [profile] = await db.select()
+      .from(profiles)
+      .where(eq(profiles.name, name))
+      .limit(1);
+
+    return profile;
   }
 }
