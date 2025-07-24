@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core'
-import { profiles } from './profiles'
+import { pgTable, uuid, varchar, timestamp, index } from 'drizzle-orm/pg-core';
+import { profiles } from './profiles';
 
 export const gameSessions = pgTable('game_sessions', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -11,8 +11,9 @@ export const gameSessions = pgTable('game_sessions', {
   createdAt: timestamp('created_at').defaultNow()
 }, (table) => ({
   profileServerIdx: index('game_sessions_profile_server_idx').on(table.profileId, table.serverId),
-  expiresAtIdx: index('game_sessions_expires_at_idx').on(table.expiresAt)
-}))
+  expiresAtIdx: index('game_sessions_expires_at_idx').on(table.expiresAt),
+  serverIdIdx: index('game_sessions_server_id_idx').on(table.serverId)
+}));
 
-export type GameSession = typeof gameSessions.$inferSelect
-export type NewGameSession = typeof gameSessions.$inferInsert
+export type GameSession = typeof gameSessions.$inferSelect;
+export type NewGameSession = typeof gameSessions.$inferInsert;

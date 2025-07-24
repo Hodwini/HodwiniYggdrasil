@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, uuid, varchar, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -16,7 +16,7 @@ export const users = pgTable('users', {
 }, (table) => ({
   emailIdx: uniqueIndex('users_email_idx').on(table.email),
   usernameIdx: uniqueIndex('users_username_idx').on(table.username)
-}))
+}));
 
-export type User = typeof users.$inferSelect
-export type NewUser = typeof users.$inferInsert
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
