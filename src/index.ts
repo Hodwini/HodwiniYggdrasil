@@ -1,5 +1,7 @@
 import { Elysia } from 'elysia';
 import { cors } from "@elysiajs/cors";
+import { routes } from '@/routes';
+import swagger from '@elysiajs/swagger';
 
 const PORT = Bun.env.SERVER_PORT || 3000
 
@@ -14,19 +16,20 @@ const app = new Elysia()
     .get("/health", () => ({
         status: "ok",
         timestamp: new Date().toISOString(),
-        service: "YgdrasilService"
+        service: "YggdrasilService"
     }))
 
     .get("/", () => ({
-        name: "YgdrasilService",
+        name: "YggdrasilService",
         version: "1.0.0.",
         endpoints: {
             authserver: "/authserver",
             sessionserver: "/sessionserver",
-            api: "/api",
             docs: "/swagger"
         }
     }))
+    .use(routes)
+    .use(swagger())
 
 app.listen(PORT, () => {
     console.log('🚀 YggdrasilAPI running at http://localhost:3000');
