@@ -29,5 +29,5 @@ const app = new Elysia()
     }))
 
 app.listen(PORT, () => {
-    console.log('🚀 YgdrasilService running at http://localhost:3000');
+    console.log('🚀 YggdrasilAPI running at http://localhost:3000');
 });
