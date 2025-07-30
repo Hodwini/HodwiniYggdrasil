@@ -1,6 +1,6 @@
-import { eq, and, gt, or } from 'drizzle-orm'
+import { eq, and, gt } from 'drizzle-orm'
 import bcrypt from 'bcrypt'
-import { db, users, accessTokens, profiles } from '../database'
+import { db, users, accessTokens, profiles } from '@/database'
 import type { AuthenticateResponse, RefreshResponse, RegisterResponse } from '@/types/yggdrasil.types'
 import { ERRORS, stripUUID } from '@/types/yggdrasil.types'
 import { generateAccessToken, generateClientToken, calculateExpirationTime } from '@/utils/crypto'
@@ -83,7 +83,7 @@ export class AuthService {
     })
 
     if (existingEmail) {
-      throw ERRORS.EMAIL_TAKEN
+      throw ERRORS.USER_ALREADY_EXISTS
     }
 
     // Check if usernmae already exists
@@ -132,14 +132,14 @@ export class AuthService {
     return {
       message: 'User registered succesffully',
       user: {
+        id: stripUUID(user.id),
         email: user.email,
-        username: user.username,
-        profile: {
-          id: stripUUID(profile.id),
-          name: profile.name
-        }
+        username: user.username
+      },
+      profile: {
+        id: stripUUID(profile.id),
+        name: profile.name
       }
-
     }
   }
 
