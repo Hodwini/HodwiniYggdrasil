@@ -11,7 +11,10 @@
     "db:migrate": "bunx drizzle-kit migrate",
     "db:push": "bunx drizzle-kit push",
     "db:studio": "bunx drizzle-kit studio",
-    "db:drop": "bunx drizzle-kit drop"
+    "db:drop": "bunx drizzle-kit drop",
+    "logs:tail": "tail -f logs/app.log",
+    "logs:error": "tail -f logs/error.log",
+    "logs:clean": "rm -rf logs/*.log"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.3.3",
