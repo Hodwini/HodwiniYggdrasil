@@ -3,7 +3,7 @@ FROM oven/bun:1 AS build
 
 WORKDIR /app
 
-COPY package.json bun.lockb tsconfig.json bunfig.toml import_map.json ./
+COPY package.json bun.lock tsconfig.json bunfig.toml import_map.json ./
 
 RUN bun install --frozen-lockfile
 
