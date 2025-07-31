@@ -260,15 +260,6 @@ NODE_ENV=development
 
 ## 🌐 Production Deployment
 
-### Server Preparation
-
-**System Requirements:**
-- **OS:** Ubuntu 20.04+ / CentOS 8+ / Debian 11+
-- **RAM:** minimum 2GB, recommended 4GB+
-- **CPU:** 2+ cores
-- **Storage:** 20GB+ SSD
-- **Network:** public IP address
-
 ### 1️⃣ Install Docker
 
 ```bash
@@ -537,8 +528,6 @@ We welcome contributions to the project!
 ### Code Standards
 
 - ✅ **TypeScript** — strict typing
-- ✅ **ESLint** — code linting
-- ✅ **Prettier** — code formatting
 - ✅ **Conventional Commits** — commit standard
 
 ### Testing

@@ -262,13 +262,6 @@ NODE_ENV=development
 
 ### Подготовка сервера
 
-**Системные требования:**
-- **OS:** Ubuntu 20.04+ / CentOS 8+ / Debian 11+
-- **RAM:** минимум 2GB, рекомендуется 4GB+
-- **CPU:** 2+ ядра
-- **Storage:** 20GB+ SSD
-- **Network:** белый IP адрес
-
 ### 1️⃣ Установка Docker
 
 ```bash
@@ -537,8 +530,6 @@ POST /api/capes/upload
 ### Стандарты кода
 
 - ✅ **TypeScript** — строгая типизация
-- ✅ **ESLint** — линтинг кода
-- ✅ **Prettier** — форматирование
 - ✅ **Conventional Commits** — стандарт коммитов
 
 ### Тестирование
