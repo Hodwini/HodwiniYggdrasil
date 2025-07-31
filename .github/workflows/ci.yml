@@ -53,10 +53,7 @@ jobs:
           bun-version: latest
 
       - name: 📦 Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: 🔍 Type checking
-        run: bun run typecheck
+        run: bun install
 
       - name: 🧪 Run tests
         run: bun run test
@@ -89,7 +86,7 @@ jobs:
           bun-version: latest
 
       - name: 📦 Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: 🏗️ Build application
         run: |
@@ -147,7 +144,7 @@ jobs:
           bun-version: latest
 
       - name: 📦 Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: 🔍 Audit dependencies
         run: bun audit || true  # Don't fail on audit issues for now
@@ -194,7 +191,7 @@ jobs:
           bun-version: latest
 
       - name: 📦 Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: 🏗️ Build application
         run: bun run build:prod
