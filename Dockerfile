@@ -8,6 +8,9 @@ COPY bun.lock bun.lock
 
 RUN bun install
 
+COPY import_map.json import_map.json
+COPY bunfig.toml bunfig.toml
+
 COPY ./src ./src
 
 ENV NODE_ENV=production
