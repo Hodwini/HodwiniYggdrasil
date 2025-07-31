@@ -1,0 +1,120 @@
+services:
+  typedrasill-service:
+    container_name: typedrasill-service
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+    environment:
+      # Server Bootstrap
+      NODE_ENV: ${NODE_ENV:-production}
+      SERVER_PORT: 3000
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      
+      # Server Security
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TOKEN: ${JWT_TOKEN}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      
+      # PostgreSQL
+      DB_NAME: ${DB_NAME:-typedrasil}
+      DB_HOST: typedrasill-postgre
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@typedrasill-postgre:5432/${DB_NAME:-typedrasil}
+      
+      # Redis
+      REDIS_HOST: typedrasill-redis
+      REDIS_PORT: 6379
+    depends_on:
+      typedrasill-postgre:
+        condition: service_healthy
+      typedrasill-redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - yggdrasil-network
+
+  typedrasill-postgre:
+    container_name: typedrasill-postgre
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-typedrasil}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-typedrasil}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - yggdrasil-network
+
+  typedrasill-redis:
+    container_name: typedrasill-redis
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --replica-read-only no
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - yggdrasil-network
+
+  # Опционально: Adminer для управления PostgreSQL
+  adminer:
+    container_name: typedrasill-adminer
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: typedrasill-postgre
+    depends_on:
+      - typedrasill-postgre
+    restart: unless-stopped
+    networks:
+      - yggdrasil-network
+    profiles:
+      - admin
+
+  # Опционально: Redis Commander для управления Redis
+  redis-commander:
+    container_name: typedrasill-redis-commander
+    image: rediscommander/redis-commander:latest
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:typedrasill-redis:6379
+    depends_on:
+      - typedrasill-redis
+    restart: unless-stopped
+    networks:
+      - yggdrasil-network
+    profiles:
+      - admin
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  yggdrasil-network:
+    driver: bridge
