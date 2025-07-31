@@ -20,6 +20,7 @@ RUN bun build \
 	--minify-whitespace \
 	--minify-syntax \
 	--target bun \
+	--importmap ./import_map.json \
 	--outfile server \
 	./src/index.ts
 
