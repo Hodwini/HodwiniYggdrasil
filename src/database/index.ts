@@ -8,7 +8,6 @@ import { accessTokens } from './schemas/tokens'
 import { gameSessions } from './schemas/sessions'
 import { skins, capes } from './schemas/skins'
 
-// Define relations
 export const usersRelations = relations(users, ({ many }) => ({
   profiles: many(profiles),
   accessTokens: many(accessTokens),
@@ -57,7 +56,6 @@ export const capesRelations = relations(capes, ({ one }) => ({
   })
 }))
 
-// Database schema with relations
 const schema = {
   users,
   profiles,
@@ -73,7 +71,6 @@ const schema = {
   capesRelations
 }
 
-// Connection configuration
 const connectionConfig = {
   host: Bun.env.DB_HOST || 'localhost',
   port: Number(Bun.env.DB_PORT) || 5432,
@@ -83,16 +80,13 @@ const connectionConfig = {
   ssl: Bun.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 }
 
-// Create connection pool
 const pool = new Pool(connectionConfig)
 
-// Create drizzle instance with relations
 export const db = drizzle(pool, { 
   schema,
   logger: Bun.env.NODE_ENV === 'development'
 })
 
-// Export schemas for direct use
 export {
   users,
   profiles,

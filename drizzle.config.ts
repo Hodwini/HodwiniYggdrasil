@@ -5,11 +5,11 @@ export default defineConfig({
   schema: './src/database/schemas/',
   out: './drizzle',
   dbCredentials: {
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT) || 5432,
-    user: process.env.DB_USERNAME || 'postgres', 
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'typedrasil',
+    host: Bun.env.DB_HOST || 'localhost',
+    port: Number(Bun.env.DB_PORT) || 5432,
+    user: Bun.env.DB_USERNAME || 'postgres',
+    password: Bun.env.DB_PASSWORD || '',
+    database: Bun.env.DB_NAME || 'typedrasil-dev',
     ssl: false
   },
   verbose: true,

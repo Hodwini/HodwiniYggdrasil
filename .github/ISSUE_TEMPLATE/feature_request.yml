@@ -1,0 +1,116 @@
+name: ✨ Feature Request
+description: Suggest an idea for TypedrasilService
+title: "[FEATURE]: "
+labels: ["enhancement", "needs-discussion"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! 🚀
+        
+        Please provide as much detail as possible to help us understand your request.
+
+  - type: checkboxes
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing feature requests
+          required: true
+        - label: I have read the documentation and API reference
+          required: true
+        - label: This feature is related to TypedrasilService core functionality
+          required: true
+
+  - type: textarea
+    attributes:
+      label: 🚀 Feature Description
+      description: A clear and concise description of the feature you'd like to see
+      placeholder: Describe the feature you want...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 🎯 Problem/Use Case
+      description: Is your feature request related to a problem? Please describe the use case.
+      placeholder: |
+        I'm always frustrated when...
+        This would help with...
+        The use case is...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 💡 Proposed Solution
+      description: Describe the solution you'd like to see implemented
+      placeholder: |
+        I think it would be great if...
+        The feature should work like...
+        Implementation could be...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 🔄 Alternative Solutions
+      description: Describe any alternative solutions or workarounds you've considered
+      placeholder: |
+        Alternatively, we could...
+        Another approach might be...
+        I've tried using...
+    validations:
+      required: false
+
+  - type: dropdown
+    attributes:
+      label: 🏷️ Feature Category
+      description: What category does this feature belong to?
+      options:
+        - Authentication/Authorization
+        - Skins/Capes Management
+        - API Endpoints
+        - Database/Storage
+        - Security
+        - Performance
+        - DevOps/Deployment
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: 📊 Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would improve workflow
+        - High - Needed for production use
+        - Critical - Blocking current usage
+    validations:
+      required: true
+
+  - type: checkboxes
+    attributes:
+      label: 🤝 Contributing
+      description: Are you willing to contribute to this feature?
+      options:
+        - label: I'm willing to implement this feature
+        - label: I can help with testing
+        - label: I can help with documentation
+        - label: I can provide feedback during development
+
+  - type: textarea
+    attributes:
+      label: 📝 Additional Context
+      description: Add any other context, mockups, or examples about the feature request
+      placeholder: |
+        Here are some examples...
+        Similar implementations...
+        References or links...
+    validations:
+      required: false
