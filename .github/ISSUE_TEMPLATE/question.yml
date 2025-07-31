@@ -1,0 +1,93 @@
+name: ❓ Question
+description: Ask a question about TypedrasilService
+title: "[QUESTION]: "
+labels: ["question", "needs-answer"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about TypedrasilService? We're here to help! 🤔
+        
+        For general discussions, consider using [GitHub Discussions](https://github.com/hodwini/typedrasilservice/discussions) instead.
+
+  - type: checkboxes
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following
+      options:
+        - label: I have read the documentation
+          required: true
+        - label: I have searched existing issues and discussions
+          required: true
+        - label: This is not a bug report or feature request
+          required: true
+
+  - type: dropdown
+    attributes:
+      label: 📂 Question Category
+      description: What is your question about?
+      options:
+        - Installation/Setup
+        - Configuration
+        - Authentication/Yggdrasil Protocol
+        - API Usage
+        - Database/Migrations
+        - Docker/Deployment
+        - Security
+        - Performance
+        - Minecraft Integration
+        - Troubleshooting
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: ❓ Your Question
+      description: What would you like to know?
+      placeholder: Please describe your question in detail...
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 🔍 What You've Tried
+      description: What have you already tried or researched?
+      placeholder: |
+        I've looked at...
+        I've tried...
+        I found this in the docs but...
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: 🎯 Expected Outcome
+      description: What are you trying to achieve?
+      placeholder: |
+        I want to...
+        My goal is to...
+        I'm trying to implement...
+    validations:
+      required: false
+
+  - type: input
+    attributes:
+      label: 🌍 Environment
+      description: What environment are you working with?
+      placeholder: e.g., Local development, Docker, Production server
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: 📝 Additional Context
+      description: Any additional information that might help answer your question
+      placeholder: |
+        Configuration files...
+        Error messages...
+        Related documentation...
+    validations:
+      required: false
