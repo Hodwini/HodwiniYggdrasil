@@ -1,4 +1,4 @@
-name: 🚀 CI/CD Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -11,18 +11,20 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # 🧪 Testing and Code Quality
+  # ============================================================================
+  # TESTING & LINTING
+  # ============================================================================
   test:
-    name: 🧪 Test & Quality
+    name: 🧪 Test & Lint
     runs-on: ubuntu-latest
     
     services:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: typedrasil_test
-          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: typedrasil_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -30,7 +32,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-          
+      
       redis:
         image: redis:7-alpine
         options: >-
@@ -42,51 +44,24 @@ jobs:
           - 6379:6379
 
     steps:
-      - name: 📥 Checkout Code
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🟢 Setup Bun
+      - name: 🔧 Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: 📦 Install Dependencies
+      - name: 📦 Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: 🔍 Code Linting
-        run: |
-          echo "Running ESLint..."
-          # bun run lint
+      - name: 🔍 Type checking
+        run: bun run typecheck
 
-      - name: 🏗️ Build Check
-        run: |
-          echo "Building application..."
-          bun run build
-
-      - name: 🔧 Environment Setup
-        run: |
-          cp .env.example .env
-          sed -i 's/DB_PASSWORD=strong_password/DB_PASSWORD=test_password/g' .env
-          sed -i 's/DB_NAME=typedrasil-dev/DB_NAME=typedrasil_test/g' .env
-          sed -i 's/JWT_SECRET=/JWT_SECRET=test_jwt_secret_32_characters_long/g' .env
-
-      - name: 🗄️ Database Migrations
-        run: |
-          echo "Running database migrations..."
-          bun db:migrate
+      - name: 🧪 Run tests
+        run: bun run test
         env:
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USERNAME: postgres
-          DB_PASSWORD: test_password
-          DB_NAME: typedrasil_test
-
-      - name: 🧪 Run Tests
-        run: |
-          echo "Running tests..."
-          # bun test
-          echo "✅ All tests passed!"
-        env:
+          NODE_ENV: test
           DB_HOST: localhost
           DB_PORT: 5432
           DB_USERNAME: postgres
@@ -94,134 +69,210 @@ jobs:
           DB_NAME: typedrasil_test
           REDIS_HOST: localhost
           REDIS_PORT: 6379
+          JWT_SECRET: test_jwt_secret_key_for_ci_pipeline
 
-      - name: 📊 Test Coverage
-        run: |
-          echo "Generating test coverage..."
-          # bun test --coverage
-          echo "✅ Coverage generated!"
-
-  # 🐳 Docker Build
-  docker:
-    name: 🐳 Docker Build
+  # ============================================================================
+  # BUILD & VALIDATE
+  # ============================================================================
+  build:
+    name: 🏗️ Build & Validate
     runs-on: ubuntu-latest
     needs: test
-    
+
     steps:
-      - name: 📥 Checkout Code
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🔧 Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: 🏗️ Build Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: 🧪 Test Docker Image
-        run: |
-          echo "Testing Docker image..."
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:test --version || echo "Image built successfully"
-
-  # 🚀 Release (only on main branch)
-  release:
-    name: 🚀 Release
-    runs-on: ubuntu-latest
-    needs: [test, docker]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      contents: write
-      packages: write
-      
-    steps:
-      - name: 📥 Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 🟢 Setup Bun
+      - name: 🔧 Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: 📦 Install Dependencies
+      - name: 📦 Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: 🔧 Set up Docker Buildx
+      - name: 🏗️ Build application
+        run: |
+          echo "Building application..."
+          bun run build:prod
+
+      - name: 📋 Verify build output
+        run: |
+          echo "Checking build artifacts..."
+          ls -la dist/
+          file dist/index.js
+
+      - name: 🐳 Build Docker image
+        run: |
+          echo "Building Docker image..."
+          docker build -t typedrasil-test .
+
+      - name: 🩺 Test Docker image
+        run: |
+          echo "Testing Docker image..."
+          # Start container in background
+          docker run -d --name test-container \
+            -e NODE_ENV=production \
+            -e JWT_SECRET=test_secret \
+            -e DB_HOST=localhost \
+            -e DB_PASSWORD=test \
+            -p 3000:3000 \
+            typedrasil-test
+          
+          # Wait for container to start
+          sleep 10
+          
+          # Test health endpoint
+          docker exec test-container curl -f http://localhost:3000/health || exit 1
+          
+          # Cleanup
+          docker stop test-container
+          docker rm test-container
+
+  # ============================================================================
+  # SECURITY SCAN
+  # ============================================================================
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: 🔍 Audit dependencies
+        run: bun audit || true  # Don't fail on audit issues for now
+
+      - name: 🔒 Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📊 Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # ============================================================================
+  # RELEASE (only on main branch)
+  # ============================================================================
+  release:
+    name: 🚀 Release
+    runs-on: ubuntu-latest
+    needs: [test, build, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔧 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: 📦 Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: 🏗️ Build application
+        run: bun run build:prod
+
+      - name: 🏷️ Get version
+        id: version
+        run: |
+          # Generate version based on commit count and short SHA
+          VERSION="v1.0.$(git rev-list --count HEAD)-$(git rev-parse --short HEAD)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+      - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔐 Login to Container Registry
+      - name: 🔐 Log in to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📋 Extract Metadata
+      - name: 🔖 Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.version }}
 
-      - name: 🏗️ Build and Push Docker Image
+      - name: 🏗️ Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 📈 Generate Changelog
+      - name: 📝 Generate changelog
         id: changelog
         run: |
-          echo "## 🚀 What's New" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          
-          # Get commits since last tag
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -n "$LAST_TAG" ]; then
-            echo "### 📝 Changes since $LAST_TAG:" >> CHANGELOG.md
-            git log $LAST_TAG..HEAD --pretty=format:"- %s (%an)" --no-merges >> CHANGELOG.md
-          else
-            echo "### 📝 Initial Release" >> CHANGELOG.md
-            git log --pretty=format:"- %s (%an)" --no-merges -10 >> CHANGELOG.md
-          fi
-          
-          echo "" >> CHANGELOG.md
-          echo "### 🐳 Docker Image" >> CHANGELOG.md
-          echo "\`\`\`bash" >> CHANGELOG.md
-          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> CHANGELOG.md
-          echo "\`\`\`" >> CHANGELOG.md
+          # Simple changelog generation
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD 2>/dev/null || git log --pretty=format:"- %s (%h)" -10)
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: 🏷️ Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 🎉 Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.run_number }}
-          release_name: Release v${{ github.run_number }}
-          body_path: CHANGELOG.md
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## 🚀 What's New
+
+            ${{ steps.changelog.outputs.changelog }}
+
+            ## 🐳 Docker Images
+
+            ```bash
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ```
+
+            ## 📊 Full Changelog
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}
           draft: false
           prerelease: false
+          generate_release_notes: true
 
-      - name: 🎉 Success Notification
+      - name: 📢 Deployment notification
         run: |
-          echo "🎉 Release v${{ github.run_number }} created successfully!"
-          echo "📦 Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-          echo "🔗 Release URL: ${{ steps.create_release.outputs.html_url }}"
+          echo "🎉 Successfully released ${{ steps.version.outputs.version }}"
+          echo "🐳 Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
+          echo "📦 Release URL: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}"
