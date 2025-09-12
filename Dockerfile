@@ -32,4 +32,4 @@ ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["./dist/index"]
+CMD ["bun", "run", "dist/index.js"]
