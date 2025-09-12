@@ -73,11 +73,10 @@ export class AuthService {
   static async register(
     email: string,
     username: string,
-    password: string,
-    profileName: string
+    password: string
   ): Promise<RegisterResponse> {
 
-    // Check if email already
+    // Check if email already exists
     const existingEmail = await db.query.users.findFirst({
       where: eq(users.email, email)
     })
@@ -86,7 +85,7 @@ export class AuthService {
       throw ERRORS.USER_ALREADY_EXISTS
     }
 
-    // Check if usernmae already exists
+    // Check if username already exists
     const existingUsername = await db.query.users.findFirst({
       where: eq(users.username, username)
     })
@@ -95,9 +94,9 @@ export class AuthService {
       throw ERRORS.USERNAME_TAKEN
     }
 
-    // Check if profile name already exists
+    // Check if profile name already exists (используем username как имя профиля)
     const existingProfile = await db.query.profiles.findFirst({
-      where: eq(profiles.name, profileName)
+      where: eq(profiles.name, username)
     })
 
     if (existingProfile) {
@@ -118,9 +117,10 @@ export class AuthService {
       throw new Error('User creation failed')
     }
 
+    // ИСПРАВЛЕНИЕ: используем username как имя профиля (стандарт Yggdrasil)
     const [profile] = await db.insert(profiles).values({
       userId: user.id,
-      name: profileName,
+      name: username, // ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ!
       skinModel: "steve",
       isPublic: true
     }).returning()
@@ -130,7 +130,7 @@ export class AuthService {
     }
 
     return {
-      message: 'User registered succesffully',
+      message: 'User registered successfully',
       user: {
         id: stripUUID(user.id),
         email: user.email,

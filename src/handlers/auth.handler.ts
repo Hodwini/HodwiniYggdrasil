@@ -17,12 +17,11 @@ import { ERRORS } from "@/types/yggdrasil.types";
  */
 export const registerHandler = async ({ body, set}: Context & { body: RegisterRequest }) => {
   try {
-    const { email, username, password, profileName } = body
+    const { email, username, password } = body
     const result = await AuthService.register(
       email,
       username,
       password,
-      profileName
     )
     set.status = 201
     return result

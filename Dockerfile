@@ -1,33 +1,30 @@
-FROM oven/bun AS build
+# --- Сборка ---
+FROM oven/bun:1 AS build
 
 WORKDIR /app
 
-# Cache packages installation
-COPY package.json package.json
-COPY bun.lock bun.lock
+COPY package.json bun.lock tsconfig.json bunfig.toml import_map.json ./
 
-RUN bun install
+RUN bun install --frozen-lockfile
 
-COPY ./src ./src
+COPY src ./src
 
 ENV NODE_ENV=production
 
-RUN bun build \
-	--compile \
-	--minify-whitespace \
-	--minify-syntax \
-	--target bun \
-	--outfile server \
-	./src/index.ts
+RUN bun build ./src/index.ts \
+    --compile \
+    --minify \
+    --outfile /app/server \
+    --target bun
 
-FROM gcr.io/distroless/base
+FROM gcr.io/distroless/base-debian12
 
 WORKDIR /app
 
-COPY --from=build /app/server server
+COPY --from=build /app/server /app/server
 
 ENV NODE_ENV=production
-
-CMD ["./server"]
 
 EXPOSE 3000
+
+CMD ["/app/server"]

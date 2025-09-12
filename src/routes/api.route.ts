@@ -10,7 +10,7 @@ import {
 } from "@/handlers/texture.handler";
 
 export const apiRoutes = new Elysia({ prefix: '/api' })
-    // Global error handler
+  // Global error handler
   .onError(({ code, error, set }) => {
     console.error('API Error:', error)
    
@@ -31,31 +31,26 @@ export const apiRoutes = new Elysia({ prefix: '/api' })
 
   // POST /api/user/profile/{uuid}/skin
   .post('/user/profile/:uuid/skin', uploadSkinHandler, {
+    parse: async (ctx) => {
+        const buf = await ctx.request.arrayBuffer()
+        return new Uint8Array(buf)
+    },
+    body: undefined,
     detail: {
       summary: 'Upload skin',
       description: 'Upload PNG skin file for a profile (64x64 or 64x32)',
       tags: ['Textures'],
       requestBody: {
         content: {
-          'image/png': {
-            schema: {
-              type: 'string',
-              format: 'binary'
-            }
-          },
-          'application/octet-stream': {
-            schema: {
-              type: 'string',
-              format: 'binary'
-            }
-          }
+          'image/png': { schema: { type: 'string', format: 'binary' } },
+          'application/octet-stream': { schema: { type: 'string', format: 'binary' } }
         }
       },
       security: [{ Bearer: [] }]
     }
   })
   
-  // DELETE /api/user/profile/{uuid}/skin
+  // DELETE /api/user/profile/:uuid/skin
   .delete('/user/profile/:uuid/skin', removeSkinHandler, {
     detail: {
       summary: 'Remove skin',
@@ -65,7 +60,7 @@ export const apiRoutes = new Elysia({ prefix: '/api' })
     }
   })
   
-  // GET /api/user/profile/{uuid}/skin
+  // GET /api/user/profile/:uuid/skin
   .get('/user/profile/:uuid/skin', getSkinInfoHandler, {
     detail: {
       summary: 'Get skin info',
@@ -74,33 +69,28 @@ export const apiRoutes = new Elysia({ prefix: '/api' })
     }
   })
   
-  // POST /api/user/profile/{uuid}/cape
+  // POST /api/user/profile/:uuid/cape
   .post('/user/profile/:uuid/cape', uploadCapeHandler, {
+    parse: async (ctx) => {
+        const buf = await ctx.request.arrayBuffer()
+        return new Uint8Array(buf)
+    },
+    body: undefined,
     detail: {
       summary: 'Upload cape',
       description: 'Upload PNG cape file for a profile (64x32)',
       tags: ['Textures'],
       requestBody: {
         content: {
-          'image/png': {
-            schema: {
-              type: 'string',
-              format: 'binary'
-            }
-          },
-          'application/octet-stream': {
-            schema: {
-              type: 'string',
-              format: 'binary'
-            }
-          }
+          'image/png': { schema: { type: 'string', format: 'binary' } },
+          'application/octet-stream': { schema: { type: 'string', format: 'binary' } }
         }
       },
       security: [{ Bearer: [] }]
     }
   })
   
-  // DELETE /api/user/profile/{uuid}/cape
+  // DELETE /api/user/profile/:uuid/cape
   .delete('/user/profile/:uuid/cape', removeCapeHandler, {
     detail: {
       summary: 'Remove cape',
@@ -110,7 +100,7 @@ export const apiRoutes = new Elysia({ prefix: '/api' })
     }
   })
   
-  // GET /api/user/profile/{uuid}/cape
+  // GET /api/user/profile/:uuid/cape
   .get('/user/profile/:uuid/cape', getCapeInfoHandler, {
     detail: {
       summary: 'Get cape info',
@@ -132,10 +122,7 @@ export const textureRoutes = new Elysia()
           description: 'PNG texture file',
           content: {
             'image/png': {
-              schema: {
-                type: 'string',
-                format: 'binary'
-              }
+              schema: { type: 'string', format: 'binary' }
             }
           }
         }
