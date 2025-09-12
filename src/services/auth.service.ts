@@ -1,5 +1,4 @@
 import { eq, and, gt } from 'drizzle-orm'
-import bcrypt from 'bcrypt'
 import { db, users, accessTokens, profiles } from '@/database'
 import type { AuthenticateResponse, RefreshResponse, RegisterResponse } from '@/types/yggdrasil.types'
 import { ERRORS, stripUUID } from '@/types/yggdrasil.types'
@@ -28,8 +27,8 @@ export class AuthService {
       throw ERRORS.INVALID_CREDENTIALS
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.passwordHash)
+    // Verify password using Bun.password
+    const isValidPassword = await Bun.password.verify(password, user.passwordHash)
     if (!isValidPassword) {
       throw ERRORS.INVALID_CREDENTIALS
     }
@@ -73,7 +72,8 @@ export class AuthService {
   static async register(
     email: string,
     username: string,
-    password: string
+    password: string,
+    profileName: string
   ): Promise<RegisterResponse> {
 
     // Check if email already exists
@@ -94,16 +94,20 @@ export class AuthService {
       throw ERRORS.USERNAME_TAKEN
     }
 
-    // Check if profile name already exists (используем username как имя профиля)
+    // Check if profile name already exists
     const existingProfile = await db.query.profiles.findFirst({
-      where: eq(profiles.name, username)
+      where: eq(profiles.name, profileName)
     })
 
     if (existingProfile) {
       throw ERRORS.PROFILE_NAME_TAKEN
     }
 
-    const passwordHash = await bcrypt.hash(password, 10)
+    // Hash password using Bun.password
+    const passwordHash = await Bun.password.hash(password, {
+      algorithm: "bcrypt",
+      cost: 12 // Higher cost for better security
+    })
 
     const [user] = await db.insert(users).values({
       email,
@@ -117,10 +121,9 @@ export class AuthService {
       throw new Error('User creation failed')
     }
 
-    // ИСПРАВЛЕНИЕ: используем username как имя профиля (стандарт Yggdrasil)
     const [profile] = await db.insert(profiles).values({
       userId: user.id,
-      name: username, // ← КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ!
+      name: profileName,
       skinModel: "steve",
       isPublic: true
     }).returning()
@@ -265,7 +268,8 @@ export class AuthService {
       throw ERRORS.INVALID_CREDENTIALS
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.passwordHash)
+    // Verify password using Bun.password
+    const isValidPassword = await Bun.password.verify(password, user.passwordHash)
     if (!isValidPassword) {
       throw ERRORS.INVALID_CREDENTIALS
     }
@@ -276,5 +280,15 @@ export class AuthService {
         isActive: false 
       })
       .where(eq(accessTokens.userId, user.id))
+  }
+
+  /**
+   * Hash password utility method (for migrations or admin tools)
+   */
+  static async hashPassword(password: string): Promise<string> {
+    return await Bun.password.hash(password, {
+      algorithm: "bcrypt",
+      cost: 12
+    })
   }
 }
