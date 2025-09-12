@@ -1,4 +1,3 @@
-# --- Сборка ---
 FROM oven/bun:1 AS build
 
 WORKDIR /app
@@ -9,22 +8,23 @@ RUN bun install --frozen-lockfile
 
 COPY src ./src
 
-ENV NODE_ENV=production
+RUN bun build src/index.ts \
+    --outdir ./dist \
+    --target bun \
+    --no-minify
 
-RUN bun build ./src/index.ts \
-    --compile \
-    --minify \
-    --outfile /app/server \
-    --target bun
+FROM oven/bun:1-alpine
 
-FROM gcr.io/distroless/base-debian12
+RUN apk add --no-cache bash curl git
 
 WORKDIR /app
 
-COPY --from=build /app/server /app/server
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY bunfig.toml import_map.json ./
 
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["/app/server"]
+CMD ["bun", "run", "dist/index.js"]
