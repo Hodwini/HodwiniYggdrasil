@@ -1,6 +1,8 @@
+name: hodwini-yggdrasil
+
 services:
-  typedrasill-service:
-    container_name: typedrasill-service
+  app:
+    container_name: hodwini-app
     build:
       context: .
       dockerfile: Dockerfile
@@ -18,30 +20,30 @@ services:
       JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
       
       # PostgreSQL
-      DB_NAME: ${DB_NAME:-typedrasil}
-      DB_HOST: typedrasill-postgre
+      DB_NAME: ${DB_NAME:-yggdrasil}
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD}
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@typedrasill-postgre:5432/${DB_NAME:-typedrasil}
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-yggdrasil}
       
       # Redis
-      REDIS_HOST: typedrasill-redis
+      REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
-      typedrasill-postgre:
+      postgres:
         condition: service_healthy
-      typedrasill-redis:
+      redis:
         condition: service_healthy
     restart: unless-stopped
     networks:
       - yggdrasil-network
 
-  typedrasill-postgre:
-    container_name: typedrasill-postgre
+  postgres:
+    container_name: hodwini-postgres
     image: postgres:15-alpine
     environment:
-      POSTGRES_DB: ${DB_NAME:-typedrasil}
+      POSTGRES_DB: ${DB_NAME:-yggdrasil}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
@@ -50,7 +52,7 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-typedrasil}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-yggdrasil}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -59,8 +61,8 @@ services:
     networks:
       - yggdrasil-network
 
-  typedrasill-redis:
-    container_name: typedrasill-redis
+  redis:
+    container_name: hodwini-redis
     image: redis:7-alpine
     command: redis-server --appendonly yes --replica-read-only no
     volumes:
